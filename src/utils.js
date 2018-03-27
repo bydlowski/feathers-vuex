@@ -1,93 +1,126 @@
-import _trim from 'lodash.trim'
-import decode from 'jwt-decode'
+'use strict';
 
-export function stripSlashes (location) {
-  return Array.isArray(location) ? location.map(l => _trim(l, '/')) : _trim(location, '/')
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.initAuth = exports.isBrowser = exports.isNode = undefined;
+exports.stripSlashes = stripSlashes;
+exports.upperCaseFirst = upperCaseFirst;
+exports.getShortName = getShortName;
+exports.getNameFromPath = getNameFromPath;
+exports.getValidPayloadFromToken = getValidPayloadFromToken;
+exports.payloadIsValid = payloadIsValid;
+exports.readCookie = readCookie;
+
+var _lodash = require('lodash.trim');
+
+var _lodash2 = _interopRequireDefault(_lodash);
+
+var _jwtDecode = require('jwt-decode');
+
+var _jwtDecode2 = _interopRequireDefault(_jwtDecode);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function stripSlashes(location) {
+  return Array.isArray(location) ? location.map(function (l) {
+    return (0, _lodash2.default)(l, '/');
+  }) : (0, _lodash2.default)(location, '/');
 }
 
-export function upperCaseFirst (string) {
-  return string.charAt(0).toUpperCase() + string.slice(1)
+function upperCaseFirst(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-export function getShortName (service) {
-  let namespace = stripSlashes(service)
+function getShortName(service) {
+  var namespace = stripSlashes(service);
   if (Array.isArray(namespace)) {
-    namespace = namespace.slice(-1)
+    namespace = namespace.slice(-1);
   } else if (namespace.includes('/')) {
-    namespace = namespace.slice(namespace.lastIndexOf('/') + 1)
+    namespace = namespace.slice(namespace.lastIndexOf('/') + 1);
   }
-  return namespace
+  return namespace;
 }
 
-export function getNameFromPath (service) {
-  return stripSlashes(service)
+function getNameFromPath(service) {
+  return stripSlashes(service);
 }
 
 // from https://github.com/iliakan/detect-node
-export const isNode = Object.prototype.toString.call(typeof process !== 'undefined' ? process : 0) === '[object process]'
+var isNode = exports.isNode = Object.prototype.toString.call(typeof process !== 'undefined' ? process : 0) === '[object process]';
 
-export const isBrowser = !isNode
+var isBrowser = exports.isBrowser = !isNode;
 
-const authDefaults = {
+var authDefaults = {
   commit: undefined,
   req: undefined,
   moduleName: 'auth',
   cookieName: 'feathers-jwt'
-}
+};
 
-export const initAuth = function initAuth (options) {
-  const { commit, req, moduleName, cookieName } = Object.assign({}, authDefaults, options)
+var initAuth = exports.initAuth = function initAuth(options) {
+  var _Object$assign = Object.assign({}, authDefaults, options),
+      commit = _Object$assign.commit,
+      dispatch = _Object$assign.dispatch,
+      req = _Object$assign.req,
+      moduleName = _Object$assign.moduleName,
+      cookieName = _Object$assign.cookieName;
 
   if (typeof commit !== 'function') {
-    throw new Error('You must pass the `commit` function in the `initAuth` function options.')
+    throw new Error('You must pass the `commit` function in the `initAuth` function options.');
   }
   if (!req) {
-    throw new Error('You must pass the `req` object in the `initAuth` function options.')
+    throw new Error('You must pass the `req` object in the `initAuth` function options.');
   }
 
-  const accessToken = readCookie(req.headers.cookie, cookieName)
-  const payload = getValidPayloadFromToken(accessToken)
+  var accessToken = readCookie(req.headers.cookie, cookieName);
+  var payload = getValidPayloadFromToken(accessToken);
 
   if (payload) {
-    commit(`${moduleName}/setAccessToken`, accessToken)
-    commit(`${moduleName}/setPayload`, payload)
+    commit(moduleName + '/setAccessToken', accessToken);
+    commit(moduleName + '/setPayload', payload);
   }
-  return Promise.resolve(payload)
-}
+  try {
+    var user = dispatch(moduleName + '/populateUser', payload.userId)
+    return Promise.resolve(user);
+  } catch (error) {
+    return Promise.resolve(undefined);
+  }
+};
 
-export function getValidPayloadFromToken (token) {
+function getValidPayloadFromToken(token) {
   if (token) {
     try {
-      var payload = decode(token)
-      return payloadIsValid(payload) ? payload : undefined
+      var payload = (0, _jwtDecode2.default)(token);
+      return payloadIsValid(payload) ? payload : undefined;
     } catch (error) {
-      return undefined
+      return undefined;
     }
   }
-  return undefined
+  return undefined;
 }
 
 // Pass a decoded payload and it will return a boolean based on if it hasn't expired.
-export function payloadIsValid (payload) {
-  return payload && payload.exp * 1000 > new Date().getTime()
+function payloadIsValid(payload) {
+  return payload && payload.exp * 1000 > new Date().getTime();
 }
 
 // Reads and returns the contents of a cookie with the provided name.
-export function readCookie (cookies, name) {
+function readCookie(cookies, name) {
   if (!cookies) {
-    console.log('no cookies found')
-    return undefined
+    console.log('no cookies found');
+    return undefined;
   }
-  var nameEQ = name + '='
-  var ca = cookies.split(';')
+  var nameEQ = name + '=';
+  var ca = cookies.split(';');
   for (var i = 0; i < ca.length; i++) {
-    var c = ca[i]
+    var c = ca[i];
     while (c.charAt(0) === ' ') {
-      c = c.substring(1, c.length)
+      c = c.substring(1, c.length);
     }
     if (c.indexOf(nameEQ) === 0) {
-      return c.substring(nameEQ.length, c.length)
+      return c.substring(nameEQ.length, c.length);
     }
   }
-  return null
+  return null;
 }
